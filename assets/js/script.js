@@ -1,5 +1,67 @@
-var tasks = {};
+var task = {};
 
+$(".card .list-group").sortable({
+  connectWith: $(".card .list-group"),
+  scroll: false,
+  tolerance: "pointer",
+  helper: "clone",
+  activate: function(event){
+    console.log("activate", this); 
+  },
+  deactivate: function(event) {
+    console.log("deactivate", this);
+  },
+  over: function(event) {
+    console.log("over", event.target);
+  },
+  out: function(event) {
+    console.log("out", event.target);
+  },
+  update: function(event) {
+    var tempArr= []; 
+
+    $(this).children().each(function(){
+      var text = $(this)
+        .find("p")
+        .text()
+        .trim();
+
+      var date = $(this)
+        .find("span")
+        .text()
+        .trim();
+
+        tempArr.push({
+          text: text,
+          date: date
+        })
+
+      console.log(tempArr); 
+    })
+    
+    var arrName = $(this)
+      .attr("id")
+      .replace("list-", "");
+      
+      tasks[arrName] = tempArr;
+      saveTasks(); 
+  }
+})
+
+$("#trash").droppable({
+  accept: ".card .list-group-item",
+  tolerance: "touch",
+  drop: function(event, ui) {
+    console.log("drop");
+    ui.draggable.remove();
+  },
+  over: function(event, ui) {
+    console.log("over");
+  },
+  out: function(event, ui) {
+    console.log("out");
+  }
+})
 
 var createTask = function(taskText, taskDate, taskList) {
   // create elements that make up a task item
@@ -14,7 +76,7 @@ var createTask = function(taskText, taskDate, taskList) {
   // append span and p element to parent li
   taskLi.append(taskSpan, taskP);
 
-
+  auditTask(taskLi); 
   // append to ul list on the page
   $("#list-" + taskList).append(taskLi);
 };
@@ -38,18 +100,22 @@ var loadTasks = function() {
     console.log(arr); 
     createTask(task.text, task.date, list);
     // then loop over sub-array
-    // arr.forEach(function(task) {
-    //   createTask(task.text, task.date, list);
-    // });
-    for (var task in arr) {
+    arr.forEach(function(task) {
       createTask(task.text, task.date, list);
-    };
+    });
+    // for (var task in arr) {
+    //   createTask(task.text, task.date, list);
+    // };
   });
 };
 
 var saveTasks = function() {
   localStorage.setItem("tasks", JSON.stringify(tasks));
 };
+
+$("#modalDueDate").datepicker( {
+  minDate: 1
+})
 
 // modal was triggered
 $("#task-form-modal").on("show.bs.modal", function() {
@@ -85,6 +151,21 @@ $("#task-form-modal .btn-primary").click(function() {
   }
 });
 
+var auditTask = function(taskEl) {
+  var date = $(taskEl).find("span").text().trim();
+
+  var time = moment(date, "L").set("hour", 17);
+
+  $(taskEl).removeClass("list-group-item-warning list-group-item-danger");
+
+  if(moment().isAfter(time)) {
+    $(taskEl).addClass("list-group-item-danger"); 
+  }
+  else if (Math.abs(moment().diff(time, "days")) <=2 ) {
+    $(taskEl).addClass("list-group-item-warning");
+  }
+}
+
 $(".list-group").on("click", "p", function(){
   var text = $(this)
   .text()
@@ -95,6 +176,9 @@ $(".list-group").on("click", "p", function(){
   .val(text)
   
   $(this).replaceWith(textInput); 
+
+  
+
   textInput.trigger("focus"); 
 }) 
 
@@ -133,12 +217,17 @@ $(".list-group").on("click", "span", function() {
 
     $(this).replaceWith(dateInput);
 
+    dateInput.datepicker({
+      minDate: 1,
+      onClose: function() {
+        $(this).trigger("change"); 
+      }
+    })
+
     dateInput.trigger("focus"); 
 })
 
-
-
-$(".list-group").on("blur", "input[type='text']", function() {
+$(".list-group").on("change", "input[type='text']", function() {
   var date = $(this).val()
 
   var status = $(this)
@@ -158,6 +247,8 @@ $(".list-group").on("blur", "input[type='text']", function() {
     .text(date); 
 
   $(this).replaceWith(taskSpan); 
+
+  auditTask($(taskSpan).closest(".list-group-item"));
   })
 
 // remove all tasks
